@@ -1,0 +1,36 @@
+'use client';
+import { useCallback, useEffect, useState } from 'react';
+import type { AgentRecord, MergeEligibility, MergeOperation, PublicQuiz, QuizAttempt } from '@classroom/shared';
+
+async function api<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, init); const data = await response.json();
+  if (!response.ok) throw Object.assign(new Error(data.error || 'Request failed.'), { code: data.code, status: response.status, details: data.details });
+  return data;
+}
+
+export default function QuizMerge({ agent, backend, version, explanationCompleted }: { agent: AgentRecord; backend: string; version: string; explanationCompleted: boolean }) {
+  const endpoint = `${backend}/api/agents/${agent.id}`;
+  const [quiz, setQuiz] = useState<PublicQuiz | null>(null); const [attempt, setAttempt] = useState<QuizAttempt | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string>>({}); const [eligibility, setEligibility] = useState<MergeEligibility | null>(null);
+  const [operation, setOperation] = useState<MergeOperation | null>(null); const [busy, setBusy] = useState(''); const [error, setError] = useState('');
+  const refreshEligibility = useCallback(async () => { try { setEligibility(await api(`${endpoint}/merge/eligibility`)); } catch (e) { setError((e as Error).message); } }, [endpoint]);
+  const loadQuiz = useCallback(async () => { if (!explanationCompleted) { setQuiz(null); return; } try { const data = await api<{ quiz: PublicQuiz | null }>(`${endpoint}/quiz`); setQuiz(data.quiz); } catch (e) { const problem = e as Error & { code?: string }; if (problem.code !== 'EXPLANATION_REQUIRED') setError(problem.message); } }, [endpoint, explanationCompleted]);
+  useEffect(() => { setAnswers({}); setAttempt(null); setOperation(null); setError(''); void loadQuiz(); void refreshEligibility(); }, [version, loadQuiz, refreshEligibility]);
+  async function generate() { setBusy('generate'); setError(''); try { const data = await api<{ quiz: PublicQuiz }>(`${endpoint}/quiz`, { method: 'POST' }); setQuiz(data.quiz); } catch (e) { setError((e as Error).message); } finally { setBusy(''); } }
+  async function submit() {
+    if (!quiz) return; setBusy('submit'); setError('');
+    try { const data = await api<{ attempt: QuizAttempt }>(`${endpoint}/quiz/attempts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version, quizId: quiz.id, submissionId: crypto.randomUUID(), answers: quiz.questions.map(question => ({ questionId: question.id, optionId: answers[question.id] })) }) }); setAttempt(data.attempt); setQuiz({ ...quiz, attemptCount: quiz.attemptCount + 1, passed: quiz.passed || data.attempt.passed }); await refreshEligibility(); }
+    catch (e) { setError((e as Error).message); } finally { setBusy(''); }
+  }
+  async function merge() { setBusy('merge'); setError(''); try { const data = await api<{ operation: MergeOperation }>(`${endpoint}/merge`, { method: 'POST' }); setOperation(data.operation); await refreshEligibility(); } catch (e) { setError((e as Error).message); const details = (e as { details?: MergeOperation }).details; if (details?.resultCommit) setOperation(details); } finally { setBusy(''); } }
+  return <section className="quiz-merge" aria-label="Quiz and merge gate"><div className="flow-steps" aria-label="Learning flow"><span className="done">Review</span><span>→</span><span className={explanationCompleted ? 'done' : ''}>Explain</span><span>→</span><span className={quiz?.passed ? 'done' : ''}>Quiz</span><span>→</span><span className={operation?.status === 'succeeded' ? 'done' : ''}>Merge</span><span>→</span><span>Result</span></div>
+    <div className="quiz-heading"><div><h2>Knowledge checkpoint</h2><p>{agent.runner === 'demo' ? 'The bundled demo uses three deterministic questions and sends nothing to Groq.' : 'Generating sends the reviewed code changes to Groq. Secret-like files are blocked server-side.'}</p></div>{quiz && <span className="quiz-label">{quiz.label}</span>}</div>
+    {!explanationCompleted && <div className="review-notice">Complete the explanation for this exact review version to unlock the quiz.</div>}
+    {error && <div className="error" role="alert">{error}</div>}
+    {explanationCompleted && !quiz && <button className="primary-review" disabled={!!busy} onClick={generate}>{busy === 'generate' ? 'Generating three questions…' : agent.runner === 'demo' ? 'Create Demo quiz' : 'Generate quiz with Groq'}</button>}
+    {quiz && <div className="quiz-form">{quiz.questions.map((question, index) => { const feedback = attempt?.feedback.find(item => item.questionId === question.id); return <fieldset key={question.id}><legend>{index + 1}. {question.prompt}</legend><p className="quiz-evidence">Evidence: {question.evidence.path} — “{question.evidence.excerpt}”</p>{question.options.map(option => <label key={option.id} className={feedback ? option.id === feedback.correctOptionId ? 'quiz-correct' : option.id === feedback.selectedOptionId ? 'quiz-incorrect' : '' : ''}><input type="radio" name={`question-${question.id}`} value={option.id} checked={answers[question.id] === option.id} disabled={!!attempt || !!busy} onChange={() => setAnswers({ ...answers, [question.id]: option.id })}/><span>{option.text}</span></label>)}{feedback && <p className={feedback.correct ? 'feedback correct' : 'feedback incorrect'}>{feedback.correct ? 'Correct. ' : 'Not quite. '}{feedback.explanation}</p>}</fieldset>})}
+      {!attempt ? <button className="primary-review" disabled={!!busy || quiz.questions.some(question => !answers[question.id])} onClick={submit}>{busy === 'submit' ? 'Grading…' : 'Submit answers'}</button> : <div className="quiz-result" role="status"><strong>Score: {attempt.score}/3</strong><span>{attempt.passed ? 'Passed' : '3/3 is required to pass.'}</span>{!attempt.passed && <button onClick={() => { setAttempt(null); setAnswers({}); }}>Retry quiz</button>}<small>Attempt {quiz.attemptCount}. Passing is a learning checkpoint, not proof that the software is correct.</small></div>}
+    </div>}
+    <div className="merge-gate"><h2>Merge gate</h2>{eligibility && !eligibility.eligible && <ul>{eligibility.blockers.map((blocker, index) => <li key={`${blocker.code}-${index}`}><code>{blocker.code}</code> {blocker.message}</li>)}</ul>}{eligibility?.eligible && !eligibility.existingOperation?.resultCommit && <p className="merge-ready">All server-side checks pass for version {eligibility.version?.slice(0, 10)}.</p>}<button className="primary-review" disabled={!eligibility?.eligible || !!busy || !!eligibility.existingOperation?.resultCommit} onClick={merge}>{busy === 'merge' ? 'Preparing and verifying merge…' : eligibility?.existingOperation?.resultCommit ? 'Already merged' : 'Merge reviewed changes'}</button>{(operation ?? eligibility?.existingOperation)?.resultCommit && <div className="merge-success" role="status"><strong>Merged successfully</strong><span>Branch: {(operation ?? eligibility?.existingOperation)!.branch}</span><code>{(operation ?? eligibility?.existingOperation)!.resultCommit}</code>{(operation ?? eligibility?.existingOperation)!.validation && <small>Validation: {(operation ?? eligibility?.existingOperation)!.validation!.status} — {(operation ?? eligibility?.existingOperation)!.validation!.message}</small>}</div>}</div>
+  </section>;
+}

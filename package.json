@@ -6,14 +6,15 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -k -n server,web \"npm run dev -w @classroom/server\" \"npm run dev -w @classroom/web\"",
+    "dev": "node scripts/services.mjs dev",
     "demo:setup": "node scripts/setup-demo.mjs",
     "typecheck": "tsc --noEmit -p apps/server && tsc --noEmit -p apps/web",
     "test": "tsx --test apps/server/test/*.test.ts",
-    "build": "npm run build -w @classroom/web",
-    "start": "concurrently -k -n server,web \"npm run start -w @classroom/server\" \"npm run start -w @classroom/web\"",
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/services.mjs production",
     "postinstall": "node scripts/prepare-pty.mjs",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "stop": "node scripts/services.mjs stop"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

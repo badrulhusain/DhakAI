@@ -6,7 +6,7 @@ import path from 'node:path';
 import { git, createWorktree } from '../src/git.js';
 import { collectReview, FILE_LIMIT } from '../src/review-git.js';
 import { ReviewService } from '../src/review-service.js';
-import { ExplanationStore } from '../src/explanation-store.js';
+import { LocalLearningStore } from '../src/learning-store.js';
 import { explanationComplete, type AgentRecord, type Answers } from '@classroom/shared';
 const answers: Answers = { problem: 'The original greeting was missing the friendly punctuation we need.', solution: 'The greeting now adds an exclamation mark after the supplied name.', edgeCase: 'Test an empty name and a Unicode name to check the resulting greeting.' };
 async function fixture() {
@@ -17,7 +17,7 @@ async function fixture() {
   await git(repo, 'add', '.'); await git(repo, '-c', 'user.name=Test', '-c', 'user.email=test@localhost', 'commit', '-m', 'base');
   const worktree = await createWorktree(repo, path.join(root, 'worktrees'), 'review');
   const agent: AgentRecord = { id: 'test-agent', name: 'Agent test', task: 'Review test', runner: 'demo', status: 'stopped', createdAt: new Date().toISOString(), branch: worktree.branch, baseBranch: worktree.baseBranch, startCommit: worktree.startCommit, worktree: worktree.worktree };
-  const store = new ExplanationStore(path.join(root, 'data')); const service = new ReviewService(id => { if (id !== agent.id) throw new Error('Agent not found.'); return agent; }, store);
+  const store = new LocalLearningStore(path.join(root, 'data')); await store.init(); const service = new ReviewService(id => { if (id !== agent.id) throw new Error('Agent not found.'); return agent; }, store);
   return { root, repo, agent, work: worktree.worktree, store, service, cleanup: () => rm(root, { recursive: true, force: true }) };
 }
 test('collects combined committed, staged, unstaged, added, deleted, renamed and unusual paths without changing index/base', async () => {
@@ -42,7 +42,7 @@ test('snapshot content is immutable, versions reject stale submissions, drafts/c
   try {
     await writeFile(path.join(f.work, 'modify.txt'), 'first version\n'); const review = await f.service.review(f.agent.id);
     const draft = await f.service.save(f.agent.id, { version: review.version, answers: { ...answers, problem: 'partial' }, intent: 'draft' }); assert.equal(draft.status, 'draft');
-    const restartedStore = new ExplanationStore(f.store.directory); assert.deepEqual((await restartedStore.get(f.agent.id, review.version))?.answers.problem, 'partial');
+    const restartedStore = new LocalLearningStore(f.store.directory); await restartedStore.init(); assert.deepEqual((await restartedStore.getExplanation(f.agent.id, review.version))?.answers.problem, 'partial');
     await assert.rejects(f.service.save(f.agent.id, { version: review.version, answers: { ...answers, problem: '    short   ' }, intent: 'complete' }), /30 non-whitespace/);
     assert.equal(explanationComplete({ ...answers, problem: 'x'.repeat(29) + ' \n\t' }), false);
     await f.service.save(f.agent.id, { version: review.version, answers, intent: 'complete' }); assert.equal((await f.service.isExplanationCompleteForCurrentReview(f.agent.id)).complete, true);
@@ -50,7 +50,7 @@ test('snapshot content is immutable, versions reject stale submissions, drafts/c
     await writeFile(path.join(f.work, 'modify.txt'), 'second version\n'); assert.equal(f.service.file(f.agent.id, review.version, review.files[0].id).after, 'first version\n');
     await assert.rejects(f.service.save(f.agent.id, { version: review.version, answers, intent: 'complete' }), /changed before submission/);
     assert.equal((await f.service.isExplanationCompleteForCurrentReview(f.agent.id)).complete, false);
-    const next = await f.service.review(f.agent.id); assert.notEqual(next.version, review.version); assert.equal(next.outdated, true); assert.deepEqual(next.previousExplanation?.answers, answers); assert.equal((await restartedStore.get(f.agent.id, review.version))?.status, 'completed');
+    const next = await f.service.review(f.agent.id); assert.notEqual(next.version, review.version); assert.equal(next.outdated, true); assert.deepEqual(next.previousExplanation?.answers, answers); const afterRestart = new LocalLearningStore(f.store.directory); await afterRestart.init(); assert.equal((await afterRestart.getExplanation(f.agent.id, review.version))?.status, 'completed');
     assert.throws(() => f.service.file(f.agent.id, review.version, review.files[0].id), /version changed/);
     assert.throws(() => f.service.file(f.agent.id, next.version, '../outside'), /does not belong/);
     await f.service.save(f.agent.id, { version: next.version, answers, intent: 'draft' }); assert.equal((await f.service.review(f.agent.id)).explanation?.status, 'draft');
@@ -81,7 +81,7 @@ test('running, missing worktree, missing base, empty review and failed persisten
     const empty = await f.service.review(f.agent.id); assert.equal(empty.files.length, 0); assert.equal(empty.canComplete, false);
     const base = f.agent.startCommit; f.agent.startCommit = '0'.repeat(40); await assert.rejects(f.service.review(f.agent.id, true), /base commit is unavailable/); f.agent.startCommit = base;
     await writeFile(path.join(f.work, 'modify.txt'), 'new'); const review = await f.service.review(f.agent.id, true);
-    await writeFile(f.store.directory, 'not a directory'); await assert.rejects(f.service.save(f.agent.id, { version: review.version, answers, intent: 'draft' }));
+    await rm(path.join(f.store.directory, 'learning-records.json')); await mkdir(path.join(f.store.directory, 'learning-records.json')); await assert.rejects(f.service.save(f.agent.id, { version: review.version, answers, intent: 'draft' }));
     await rm(f.work, { recursive: true }); await assert.rejects(f.service.review(f.agent.id, true), /worktree is missing/);
   } finally { await f.cleanup(); }
 });

@@ -8,6 +8,7 @@ export default function LiveTerminal({ id, backend, onStatus }: { id: string; ba
   const [connection, setConnection] = useState('Connecting');
   const [error, setError] = useState('');
   useEffect(() => {
+    let failures = 0;
     let disposed = false, socket: WebSocket | undefined, retry: ReturnType<typeof setTimeout>, cleanup = () => {};
     void Promise.all([import('@xterm/xterm'), import('@xterm/addon-fit')]).then(([{ Terminal }, { FitAddon }]) => {
       if (disposed || !host.current) return;
@@ -19,9 +20,9 @@ export default function LiveTerminal({ id, backend, onStatus }: { id: string; ba
       const connect = () => {
         if (disposed) return;
         socket = new WebSocket(`${backend.replace(/^http/, 'ws')}/terminal/${id}`);
-        socket.onopen = () => { setConnection('Connected'); setError(''); resize(); };
+        socket.onopen = () => { failures = 0; setConnection('Connected'); setError(''); resize(); };
         socket.onmessage = event => { const message = JSON.parse(event.data) as ServerMessage; if (message.type === 'replay') { term.reset(); term.write(message.data); } else if (message.type === 'output') term.write(message.data); else if (message.type === 'status') callback.current(message.agent); else setError(message.message); };
-        socket.onclose = () => { if (!disposed) { setConnection('Reconnecting'); retry = setTimeout(connect, 1500); } };
+        socket.onclose = () => { if (!disposed) { setConnection('Reconnecting'); retry = setTimeout(connect, Math.min(10000, 500 * 2 ** Math.min(failures++, 5))); } };
         socket.onerror = () => setConnection('Connection interrupted');
       };
       connect();

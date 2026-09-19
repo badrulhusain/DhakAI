@@ -22,10 +22,12 @@ async function fixture() {
 async function until(predicate: () => boolean, timeout = 7000) { const start = Date.now(); while (!predicate()) { if (Date.now() - start > timeout) throw new Error('Timed out waiting for condition'); await new Promise(r => setTimeout(r, 25)); } }
 function connect(url: string) { const ws = new WebSocket(url, { origin }); const messages: any[] = []; ws.on('message', data => messages.push(JSON.parse(data.toString()))); return { ws, messages }; }
 test('full HTTP / PTY / WebSocket demo, isolation, duplicate rejection, replay, input and natural completion', async () => {
-  const f = await fixture(); const manager = new AgentManager(f.config); const app = createApp(manager, [origin]);
+  const f = await fixture(); const manager = new AgentManager(f.config); const app = await createApp(manager, [origin]);
   await new Promise<void>(r => app.server.listen(0, '127.0.0.1', r)); const port = (app.server.address() as { port: number }).port; const base = `http://127.0.0.1:${port}`;
   const headers = { Origin: origin, 'Content-Type': 'application/json' };
   try {
+    const health = await fetch(`${base}/health`); assert.equal(health.status, 200); assert.equal((await health.json() as { status: string }).status, 'ok');
+    const dependencies = await fetch(`${base}/api/dependencies`, { headers }); assert.equal(dependencies.status, 200); assert.deepEqual(await dependencies.json(), { database: { mode: 'local', available: true, message: 'Local demo storage available' }, quizProvider: { mode: 'unavailable', configured: false, message: 'Groq is not configured. Bundled demo agents still use the Demo quiz.' } });
     assert.equal((await fetch(`${base}/api/state`)).status, 403);
     assert.equal((await fetch(`${base}/api/state`, { headers: { Origin: 'https://evil.example' } })).status, 403);
     assert.equal((await fetch(`${base}/api/agents`, { method: 'POST', headers, body: JSON.stringify({ runner: 'shell', task: 'x' }) })).status, 400);
@@ -48,6 +50,7 @@ test('full HTTP / PTY / WebSocket demo, isolation, duplicate rejection, replay, 
     assert.equal(await git(f.repo, 'status', '--porcelain'), ''); assert.equal(await git(f.repo, 'branch', '--show-current'), 'main');
     const reviewResponse = await fetch(`${base}/api/agents/${agent.id}/review`, { headers }); assert.equal(reviewResponse.status, 200);
     const review = await reviewResponse.json() as any; assert.equal(review.files.length, 1);
+    const mergeOperation = await fetch(`${base}/api/agents/${agent.id}/merge`, { headers }); assert.equal(mergeOperation.status, 200); assert.deepEqual(await mergeOperation.json(), { operation: null });
     assert.equal((await fetch(`${base}/api/agents/${agent.id}/review/files/${'0'.repeat(64)}?version=${review.version}`, { headers })).status, 404);
     assert.equal((await fetch(`${base}/api/agents/${agent.id}/explanation`, { method: 'PUT', headers, body: JSON.stringify({ version: review.version, answers: { problem: 'x', solution: 'y', edgeCase: 'z' }, intent: 'complete' }) })).status, 400);
     assert.equal((await fetch(`${base}/api/agents/${agent.id}/explanation`, { method: 'PUT', headers: { ...headers, Origin: 'https://unrelated.example' }, body: '{}' })).status, 403);

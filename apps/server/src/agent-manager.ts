@@ -11,10 +11,27 @@ export class AgentManager extends EventEmitter {
   private sessions = new Map<string, Session>();
   private adapters: Record<LaunchInput['runner'], Runner>;
   private shuttingDown = false;
-  constructor(readonly config: ManagerConfig, adapters?: Record<LaunchInput['runner'], Runner>) { super(); this.adapters = adapters ?? runners(config); }
+  private persistenceTail: Promise<void> = Promise.resolve();
+  constructor(readonly config: ManagerConfig, adapters?: Record<LaunchInput['runner'], Runner>, private recordSink?: (record: AgentRecord) => Promise<void>) { super(); this.adapters = adapters ?? runners(config); }
+  restore(records: AgentRecord[]) {
+    for (const stored of records.slice(-25)) {
+      const record = { ...stored };
+      if (isActive(record.status)) {
+        record.status = 'interrupted'; record.endedAt = new Date().toISOString();
+        record.error = 'Backend restarted while this process was active. Its PTY is no longer connected; inspect the retained worktree before review or merge.';
+      }
+      this.sessions.set(record.id, { record, output: '\r\n[Session restored after backend restart. No PTY is connected.]\r\n', done: Promise.resolve() });
+      this.persist(record);
+    }
+  }
   list() { return [...this.sessions.values()].map(s => ({ ...s.record })).reverse(); }
   get(id: string) { const s = this.sessions.get(id); if (!s) throw new Error('Agent not found.'); return s; }
-  private publish(s: Session) { this.emit('message', s.record.id, { type: 'status', agent: { ...s.record } } satisfies ServerMessage); }
+  private persist(record: AgentRecord) {
+    if (!this.recordSink) return;
+    const snapshot = { ...record };
+    this.persistenceTail = this.persistenceTail.catch(() => {}).then(() => this.recordSink!(snapshot)).catch(error => { this.emit('persistence-error', error); });
+  }
+  private publish(s: Session) { this.emit('message', s.record.id, { type: 'status', agent: { ...s.record } } satisfies ServerMessage); this.persist(s.record); }
   async launch(input: LaunchInput) {
     input = launchSchema.parse(input);
     if (this.shuttingDown) throw new Error('Server is shutting down.');
@@ -59,5 +76,5 @@ export class AgentManager extends EventEmitter {
     s.record.status = 'stopping'; this.publish(s);
     if (s.pty) { const terminal = s.pty; signalTerminal(terminal, 'SIGTERM'); s.timer = setTimeout(() => signalTerminal(terminal, 'SIGKILL'), this.config.stopTimeout ?? 2000); }
   }
-  async shutdown() { this.shuttingDown = true; for (const s of this.sessions.values()) if (isActive(s.record.status)) this.stop(s.record.id); await Promise.all([...this.sessions.values()].map(s => s.done)); }
+  async shutdown() { this.shuttingDown = true; for (const s of this.sessions.values()) if (isActive(s.record.status)) this.stop(s.record.id); await Promise.all([...this.sessions.values()].map(s => s.done)); await this.persistenceTail; }
 }

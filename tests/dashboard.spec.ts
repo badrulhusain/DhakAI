@@ -4,7 +4,8 @@ test('launch, browser terminal input, reconnect replay, completion, stop, and mo
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Launch agent' })).toBeEnabled();
   await page.screenshot({ path: 'test-results/dashboard-desktop.png', fullPage: true });
-  await page.getByRole('button', { name: 'Launch agent' }).click();
+  let launched = page.waitForResponse(response => response.url().endsWith('/api/agents') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Launch agent' }).click(); await launched;
   await expect(page.locator('.status')).toHaveText('running');
   await expect(page.getByRole('button', { name: 'Launch agent' })).toBeDisabled();
   await expect(page.locator('.xterm-screen')).toContainText('Press Enter');
@@ -13,7 +14,8 @@ test('launch, browser terminal input, reconnect replay, completion, stop, and mo
   await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.press('Enter');
   await expect(page.locator('.status')).toHaveText('completed');
   await expect(page.locator('.xterm-screen')).toContainText('Demo complete');
-  await page.getByRole('button', { name: 'Launch agent' }).click();
+  launched = page.waitForResponse(response => response.url().endsWith('/api/agents') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Launch agent' }).click(); await launched;
   await expect(page.locator('.status')).toHaveText('running');
   await page.getByRole('button', { name: 'Stop agent' }).click();
   await expect(page.locator('.status')).toHaveText('stopped');
@@ -30,7 +32,8 @@ test('review colored changes, write explanations, restore drafts, reject stale v
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Launch agent' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Launch agent' }).click();
+  const launched = page.waitForResponse(response => response.url().endsWith('/api/agents') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Launch agent' }).click(); await launched;
   await expect(page.locator('.xterm-screen')).toContainText('Press Enter');
   await expect(page.getByRole('button', { name: 'Review changes' })).toHaveCount(0);
   await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.press('Enter');
@@ -66,6 +69,15 @@ test('review colored changes, write explanations, restore drafts, reject stale v
   await review.getByRole('button', { name: 'Save draft', exact: true }).click(); await expect(review.getByRole('alert')).toContainText('Review changed before submission'); await expect(solution).toHaveValue(typed);
   await review.getByRole('button', { name: 'Refresh changes' }).click(); await expect(review.locator('.diff-scroll')).toContainText('Welcome,'); await expect(solution).toHaveValue(typed); await expect(review.locator('.explanation-badge')).not.toHaveText('Explanation completed');
   await review.getByRole('button', { name: 'Mark explanation complete' }).click(); await expect(review.locator('.explanation-badge')).toHaveText('Explanation completed');
+  const quizResponse = page.waitForResponse(response => response.url().endsWith(`/api/agents/${agent.id}/quiz`) && response.request().method() === 'POST');
+  await review.getByRole('button', { name: 'Create Demo quiz' }).click(); const quizPayload = await (await quizResponse).json(); expect(JSON.stringify(quizPayload)).not.toContain('correctOptionId'); expect(JSON.stringify(quizPayload)).not.toContain('The returned greeting now');
+  await review.getByLabel('It removes the supplied name.').check(); await review.getByLabel('In the Git branch name.').check(); await review.getByLabel('A disconnected database.').check();
+  const firstAttempt = page.waitForResponse(response => response.url().endsWith(`/api/agents/${agent.id}/quiz/attempts`) && response.request().method() === 'POST');
+  await review.getByRole('button', { name: 'Submit answers' }).click(); await firstAttempt; await expect(review.getByText('Score: 0/3')).toBeVisible(); await expect(review.getByText('3/3 is required to pass.')).toBeVisible();
+  await review.getByRole('button', { name: 'Retry quiz' }).click(); await review.getByLabel('It adds an exclamation mark.').check(); await review.getByLabel('Inside the returned template string.').check(); await review.getByLabel('An empty or Unicode name.').check();
+  const passingAttempt = page.waitForResponse(response => response.url().endsWith(`/api/agents/${agent.id}/quiz/attempts`) && response.request().method() === 'POST');
+  await review.getByRole('button', { name: 'Submit answers' }).click(); await passingAttempt; await expect(review.getByText('Score: 3/3')).toBeVisible(); await expect(review.getByText('Passed', { exact: true })).toBeVisible();
+  await expect(review.getByRole('button', { name: 'Merge reviewed changes' })).toBeEnabled(); const mergeResponse = page.waitForResponse(response => response.url().endsWith(`/api/agents/${agent.id}/merge`) && response.request().method() === 'POST', { timeout: 60_000 }); await review.getByRole('button', { name: 'Merge reviewed changes' }).click(); await mergeResponse; await expect(review.getByText('Merged successfully')).toBeVisible(); await expect(review.getByRole('button', { name: 'Already merged' })).toBeDisabled();
   await page.reload(); await page.getByRole('button', { name: 'Review changes' }).click(); await expect(solution).toHaveValue(typed); await expect(review.locator('.explanation-badge')).toHaveText('Explanation completed');
   await page.setViewportSize({ width: 390, height: 844 }); await expect(review.getByRole('button', { name: 'Inline', exact: true })).toHaveAttribute('aria-pressed', 'true');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

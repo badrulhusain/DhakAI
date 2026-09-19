@@ -6,3 +6,6 @@ node_modules/
 *.tsbuildinfo
 playwright-report/
 test-results/
+
+.next-dev/
+.next-test/
