@@ -1,0 +1,17 @@
+import { mkdtemp, cp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { AgentManager } from '../apps/server/src/agent-manager.js';
+import { createApp } from '../apps/server/src/server.js';
+import { git } from '../apps/server/src/git.js';
+const project = fileURLToPath(new URL('../', import.meta.url));
+const root = await mkdtemp(path.join(os.tmpdir(), 'classroom-browser-'));
+const repo = path.join(root, 'demo-repo');
+await cp(path.join(project, 'samples/demo'), repo, { recursive: true });
+await git(repo, 'init', '-b', 'main'); await git(repo, 'add', '.'); await git(repo, '-c', 'user.name=Browser Test', '-c', 'user.email=test@localhost', 'commit', '-m', 'Initial');
+const manager = new AgentManager({ repo, demoRepo: repo, demoScript: path.join(project, 'scripts/demo-runner.mjs'), worktreeRoot: path.join(root, 'worktrees'), codexExecutable: '/missing/codex' });
+const app = createApp(manager, ['http://127.0.0.1:3100']);
+app.server.listen(4100, '127.0.0.1');
+let closing = false;
+for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => { if (closing) return; closing = true; void app.close().then(() => rm(root, { recursive: true, force: true })).then(() => process.exit(0)); });

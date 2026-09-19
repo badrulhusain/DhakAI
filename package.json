@@ -1,0 +1,26 @@
+{
+  "name": "agent-classroom",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,web \"npm run dev -w @classroom/server\" \"npm run dev -w @classroom/web\"",
+    "demo:setup": "node scripts/setup-demo.mjs",
+    "typecheck": "tsc --noEmit -p apps/server && tsc --noEmit -p apps/web",
+    "test": "tsx --test apps/server/test/*.test.ts",
+    "build": "npm run build -w @classroom/web",
+    "start": "concurrently -k -n server,web \"npm run start -w @classroom/server\" \"npm run start -w @classroom/web\"",
+    "postinstall": "node scripts/prepare-pty.mjs",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.0.0",
+    "concurrently": "^9.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  },
+  "type": "module"
+}

@@ -1,0 +1,17 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import { createInterface } from 'node:readline';
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+console.log('\x1b[36mAgent Classroom · scripted demo\x1b[0m');
+console.log('Task: add a friendly exclamation mark to greet().');
+await pause(500);
+console.log('01  Inspecting greet.js in this agent worktree…');
+const before = await readFile('greet.js', 'utf8');
+await pause(500);
+console.log('02  Ready to make a small code change.');
+const reader = createInterface({ input: process.stdin, output: process.stdout });
+await new Promise(resolve => reader.question('Press Enter to continue › ', resolve));
+reader.close();
+await writeFile('greet.js', before.replace('Hello, ${name}', 'Hello, ${name}!'));
+console.log('\r\n03  Updated greet.js. The base checkout is unchanged.');
+await pause(700);
+console.log('\x1b[32m✓ Demo complete. Your worktree is retained for later review.\x1b[0m');

@@ -1,0 +1,14 @@
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import dotenv from 'dotenv';
+import { AgentManager } from './agent-manager.js';
+import { createApp } from './server.js';
+const root = fileURLToPath(new URL('../../../', import.meta.url));
+dotenv.config({ path: path.join(root, '.env') });
+const demoRepo = path.join(root, '.runtime/demo-repo');
+const manager = new AgentManager({ dataRoot: path.resolve(root, process.env.DATA_ROOT || '.runtime/data/explanations'), repo: path.resolve(root, process.env.TARGET_REPO || demoRepo), demoRepo, worktreeRoot: path.resolve(root, process.env.WORKTREE_ROOT || '.runtime/worktrees'), demoScript: path.join(root, 'scripts/demo-runner.mjs'), codexExecutable: process.env.CODEX_EXECUTABLE || 'codex' });
+const app = createApp(manager, (process.env.ALLOWED_ORIGINS || 'http://127.0.0.1:3000,http://localhost:3000').split(',').map(s => s.trim()));
+const port = Number(process.env.PORT || 4000);
+app.server.listen(port, '127.0.0.1', () => console.log(`Agent Classroom backend: http://127.0.0.1:${port}`));
+let closing = false;
+for (const signal of ['SIGINT','SIGTERM'] as const) process.on(signal, () => { if (closing) return; closing = true; void app.close().then(() => process.exit(0)); });
