@@ -1,11 +1,11 @@
 # Agent Classroom
 
-Agent Classroom is a local educational coding-agent dashboard. It runs one Demo or Codex CLI agent in an isolated Git branch and worktree, streams its real PTY to the browser, captures an immutable review, asks the learner to explain the change, creates a three-question quiz, and merges only the reviewed snapshot after every server-side gate passes.
+Agent Classroom is a local educational coding-agent dashboard. It runs one Demo or Codex CLI agent in an isolated Git branch and worktree, streams its real PTY to the browser, captures an immutable review, asks the learner to explain the change, creates a three-question quiz, offers a versioned solution-drawing activity, and merges only the reviewed snapshot after every server-side gate passes.
 
-The current Phase 3 flow is:
+The current Phase 4 flow is:
 
 ```text
-Run → Review → Explain → Quiz → Merge → Result
+Run → Review → Explain → Quiz → Draw → Score → Merge
 ```
 
 ## Requirements
@@ -60,6 +60,7 @@ The backend loads the project-root `.env`. Paths may be absolute or relative to 
 | `STORAGE_MODE` | `local` | Explicitly choose `local` or `supabase` |
 | `SUPABASE_URL` | unset | Supabase project URL, server-side only |
 | `SUPABASE_SECRET_KEY` | unset | Supabase secret/service-role key, server-side only |
+| `ENABLE_DEMO_REVIEWER_MODE` | `false` | Explicitly enable the unauthenticated, loopback-only demo reviewer rubric |
 | `GROQ_API_KEY` | unset | Groq API key, server-side only |
 | `GROQ_MODEL` | `openai/gpt-oss-120b` | Structured-output-capable Groq model |
 | `MERGE_VALIDATION_EXECUTABLE` | unset | Optional server-owned command after a successful merge |
@@ -85,15 +86,36 @@ The learner answers three explanation prompts. Drafts may be incomplete; complet
 
 ## Persistence and Supabase
 
-Local mode writes one private, atomically replaced `.runtime/data/learning-records.json`. It imports existing Phase 2 per-version explanation JSON instead of replacing it. It stores run metadata, review metadata, explanations, private quiz definitions, attempts, and merge operations. Repository files and terminal transcripts are never stored there.
+Local mode writes one private, atomically replaced `.runtime/data/learning-records.json`. It imports existing Phase 2 per-version explanation JSON instead of replacing it. It stores run metadata, review metadata, explanations, private quiz definitions, attempts, drawings, checklists, rubric marks, immutable point transactions, badge awards, and merge operations. Exported drawing PNGs live under `.runtime/data/drawings/<agent>/<review>/`; browser-provided paths are never used. Repository files and terminal transcripts are never stored there.
 
-Supabase mode uses `@supabase/supabase-js` only in the Node backend. Apply [the versioned migration](supabase/migrations/20260920000000_agent_classroom_phase3.sql) to the identified project, then configure `SUPABASE_URL` and `SUPABASE_SECRET_KEY` privately and set `STORAGE_MODE=supabase`. For a linked Supabase CLI project, the normal command is:
+Supabase mode uses `@supabase/supabase-js` only in the Node backend. Apply both [the Phase 3 migration](supabase/migrations/20260920000000_agent_classroom_phase3.sql) and [the Phase 4 migration](supabase/migrations/20260920010000_agent_classroom_phase4.sql) to the identified project, then configure `SUPABASE_URL` and `SUPABASE_SECRET_KEY` privately and set `STORAGE_MODE=supabase`. For a linked Supabase CLI project, the normal command is:
 
 ```sh
 npx supabase db push
 ```
 
-The migration enables RLS on every public table, grants no browser role access, and stores private answers and grading records behind the server secret. The Node API still validates every operation because a secret/service-role key bypasses RLS. Do not apply the migration to an unidentified project.
+The migrations enable RLS on every public table and grant no `anon` or `authenticated` table access. Phase 4 also creates the `learning-drawings` bucket as private, restricted to PNG and 4 MB per object, without a browser storage policy. Images are served only through the validating backend; no permanent public URL is created. The Node API still validates every operation because a secret/service-role key bypasses RLS. Do not apply migrations to an unidentified project.
+
+## Drawing, rewards, and reviewer marks
+
+After a quiz is generated, the Phase 4 area appears as a read-only preview. Passing the quiz for that exact review version unlocks drawing. The workspace uses `react-sketch-canvas` 8.0.0 for pointer/touch SVG paths, pen, eraser, undo, redo, clear, restore, and PNG export. It was selected because its React peer range is `>=18` and supports this app’s React 19. `canvas-confetti` 1.9.4 provides short achievement celebrations with both an explicit reduced-motion check and `disableForReducedMotion`; no continuous animation is used. Both packages are pinned in the lockfile. No second canvas library or external reward service is installed.
+
+Drafts retain editable vector paths. Every drawing is keyed by agent and immutable review version, carries a monotonic revision for optimistic concurrency, and cannot be attached using a browser-selected file or object path. A changed review leaves prior work historical and offers an explicit copy action. Completion requires a title, a caption with at least 30 non-whitespace characters, at least one pen stroke, all four learner checklist items, and a persisted quiz pass for the same current version. Those checks establish observable completion only; they do not grade correctness or prove understanding.
+
+Learning points are immutable server-created transactions, unique per agent, review version, and event:
+
+| Activity | Points |
+| --- | ---: |
+| Explanation completed | 20 |
+| Quiz passed | 50 |
+| Quiz passed on the first attempt | 10 |
+| Drawing completed | 5 |
+| All drawing checklist items completed | 5 |
+| Verified merge | 10 |
+
+The maximum is 100. Score totals are calculated from transaction rows, never accepted from the browser. `Code Reader`, `Quiz Master`, `Visual Thinker`, `Safe Merger`, and `Full Journey` badges are deterministic, version-scoped, and idempotent. `Full Journey` requires explanation, quiz, completed drawing/checklist, and verified merge; the optional first-attempt bonus is not required.
+
+Reviewer marks remain separate: four 0–5 criteria produce a server-calculated mark out of 20 and may include feedback. This project has no accounts or roles, so marking is disabled by default. `ENABLE_DEMO_REVIEWER_MODE=true` enables a clearly labeled local demo reviewer panel; do not expose that mode as authenticated classroom review. There is no AI drawing grading.
 
 Run history is restored after a restart. A run that was previously creating, running, or stopping becomes `interrupted`; its old PTY is explicitly disconnected and its retained worktree must pass current review and merge checks. PTY output itself is only an in-memory 128 KiB replay buffer and is not restored.
 
@@ -118,6 +140,8 @@ The merge button and direct API enforce the same checks:
 - the expected base branch and launch commit remain checked out;
 - the base checkout is clean and no merge, rebase, cherry-pick, or revert is active;
 - the retained worktree exists and no merge record needs reconciliation.
+
+Drawing completion, points, badges, and reviewer marks are never merge gates and cannot replace any check above. A reward persistence failure does not relax the Phase 3 merge policy. After a verified merge, reward synchronization awards the merge transaction and badge idempotently; a later score read can reconcile an award if reward storage was temporarily unavailable.
 
 A repository-wide in-process queue plus `.git/agent-classroom-merge.lock` serializes requests. Inside the lock, the backend rechecks state, writes a pending operation record, materializes only the immutable reviewed files into a temporary detached worktree, and stages only that controlled worktree. It creates one synthetic commit on the recorded start commit with agent, review-version, and operation trailers. This preserves the exact final reviewed tree while flattening intermediate agent commits into one auditable classroom commit; the original agent branch and worktree remain intact.
 
@@ -146,10 +170,16 @@ POST /api/agents/:agentId/quiz/attempts
 GET  /api/agents/:agentId/merge/eligibility
 GET  /api/agents/:agentId/merge
 POST /api/agents/:agentId/merge
+GET  /api/agents/:agentId/drawing?version=<sha256>
+PUT  /api/agents/:agentId/drawing
+POST /api/agents/:agentId/drawing/complete
+GET  /api/agents/:agentId/drawing/preview?version=<sha256>
+PUT  /api/agents/:agentId/reviewer-mark
+GET  /api/agents/:agentId/score?version=<sha256>
 WS   /terminal/:agentId
 ```
 
-Errors use stable codes including `DATABASE_UNAVAILABLE`, `GROQ_NOT_CONFIGURED`, `QUIZ_GENERATION_FAILED`, `REVIEW_OUTDATED`, `EXPLANATION_REQUIRED`, `QUIZ_NOT_PASSED`, `AGENT_RUNNING`, `DIRTY_BASE`, `STALE_BASE`, `MERGE_CONFLICT`, `WORKTREE_MISSING`, and `MERGE_RECORD_PENDING`. The browser separately represents unreachable HTTP and terminal connections.
+Errors use stable codes including `DATABASE_UNAVAILABLE`, `GROQ_NOT_CONFIGURED`, `QUIZ_GENERATION_FAILED`, `REVIEW_OUTDATED`, `EXPLANATION_REQUIRED`, `QUIZ_NOT_PASSED`, `DRAWING_NOT_FOUND`, `DRAWING_TOO_LARGE`, `INVALID_DRAWING_DATA`, `DRAWING_SAVE_CONFLICT`, `QUIZ_PASS_REQUIRED`, `DRAWING_INCOMPLETE`, `STORAGE_UNAVAILABLE`, `DRAWING_UPLOAD_FAILED`, `REVIEWER_MODE_DISABLED`, `INVALID_RUBRIC_SCORE`, `SCORE_UNAVAILABLE`, `AGENT_RUNNING`, `DIRTY_BASE`, `STALE_BASE`, `MERGE_CONFLICT`, `WORKTREE_MISSING`, and `MERGE_RECORD_PENDING`. The browser separately represents unreachable HTTP and terminal connections and keeps unsaved drawing state after recoverable errors.
 
 ## Verification
 
@@ -160,9 +190,9 @@ npm run test:browser
 npm run build
 ```
 
-Backend tests use disposable repositories and mocked providers. They cover Phase 1 PTY/WebSocket lifecycle and isolation, Phase 2 immutable reviews and explanations, run restoration, valid and invalid quizzes, answer-key privacy, retry/pass and idempotency, stale reviews, direct merge rejection, dirty/stale/in-progress bases, exact-tree merge, concurrency, and post-Git persistence reconciliation. Playwright runs isolated services on ports 3100/4100 and covers the real browser terminal plus Review → Explain → Demo quiz → retry → pass → merge.
+Backend tests use disposable repositories and mocked providers. They cover Phase 1 PTY/WebSocket lifecycle and isolation, Phase 2 immutable reviews and explanations, run restoration, valid and invalid quizzes, answer-key privacy, retry/pass and idempotency, stale reviews, direct merge rejection, dirty/stale/in-progress bases, exact-tree merge, concurrency, and post-Git persistence reconciliation. Phase 4 tests add draft restore, empty/short/incomplete rejection, quiz/current-version binding, stale drawing history, optimistic conflicts, private PNG validation, reviewer gating/ranges, idempotent points/badges, transaction-sum totals, and drawing-independent merge behavior. Playwright runs isolated services on ports 3100/4100 and covers the real browser terminal plus Review → Explain → Demo quiz → retry → pass → draw/erase/undo/redo/clear/restore → export → score → merge, including mobile layout and reduced-motion behavior.
 
-External checks are separate: Supabase requires configured project credentials and an applied migration; Groq requires its private API key and configured model. A successful mock or Demo test does not claim either external service is available.
+External checks are separate: Supabase requires configured project credentials, both applied migrations, and the private bucket; Groq requires its private API key and configured model. A successful local, mock, or Demo test does not claim either external service is available. With credentials configured, verify `/api/dependencies`, create and restore a draft, complete it, and load its backend preview to exercise a live metadata write/read plus private Storage upload/read.
 
 ## Security and remaining limits
 
@@ -170,4 +200,4 @@ This is a loopback, single-user local tool with one active agent. Exact Origin c
 
 The server keeps only the 25 most recent runs in the dashboard. Historical run metadata and learning records persist, while review file contents are recaptured from retained worktrees and PTYs cannot be reattached after restart. Local JSON durability is suitable for development, not multi-process access. Supabase schema application and live availability remain operator-managed. AI quiz correctness is not guaranteed. A moved base is rejected as `STALE_BASE`. Agent worktrees and branches are intentionally retained for manual inspection and cleanup.
 
-Phase 3 does not add drawing, rewards, accounts, teacher dashboards, simultaneous agents, or a Groq coding-agent runtime.
+Phase 4 still has no accounts, teacher dashboards, classes, leaderboards, session replay, AI drawing grading, simultaneous agents, or presentation tooling. The freehand canvas is not fully keyboard-equivalent; caption and checklist controls remain keyboard accessible, and core explanation/quiz points and merge do not require the canvas. Local reviewer mode is for a trusted loopback demo only.

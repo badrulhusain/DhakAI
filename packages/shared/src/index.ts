@@ -103,13 +103,13 @@ export type DrawingCompleteInput = z.infer<typeof drawingCompleteSchema>;
 export interface DrawingRecord {
   id: string; agentId: string; reviewVersion: string; learnerId?: string; drawingVersion: number;
   revision: number; title: string; caption: string; guide: DrawingGuide; paths: DrawingPath[];
-  status: 'draft' | 'completed'; storageObjectPath?: string; createdAt: string; updatedAt: string; completedAt?: string;
+  status: 'draft' | 'completed'; storageObjectPath?: string; completionIdempotencyKey?: string; createdAt: string; updatedAt: string; completedAt?: string;
 }
 export interface DrawingChecklistRecord { drawingId: string; agentId: string; reviewVersion: string; checklist: DrawingChecklist; completed: boolean; createdAt: string; updatedAt: string }
 export const rubricCriteriaSchema = z.object({ relationship: z.number().int().min(0).max(5), flow: z.number().int().min(0).max(5), condition: z.number().int().min(0).max(5), edgeCase: z.number().int().min(0).max(5) }).strict();
 export const reviewerMarkSchema = z.object({ version: z.string().regex(/^[a-f0-9]{64}$/), drawingId: z.string().uuid(), criteria: rubricCriteriaSchema, feedback: z.string().max(3000), idempotencyKey: z.string().uuid() }).strict();
 export type ReviewerMarkInput = z.infer<typeof reviewerMarkSchema>;
-export interface ReviewerMark { id: string; drawingId: string; agentId: string; reviewVersion: string; criteria: z.infer<typeof rubricCriteriaSchema>; total: number; feedback: string; mode: 'demo-reviewer'; createdAt: string; updatedAt: string }
+export interface ReviewerMark { id: string; drawingId: string; agentId: string; reviewVersion: string; criteria: z.infer<typeof rubricCriteriaSchema>; total: number; feedback: string; mode: 'demo-reviewer'; idempotencyKey: string; createdAt: string; updatedAt: string }
 export const pointEvents = ['explanation_completed', 'quiz_passed', 'quiz_first_attempt', 'drawing_completed', 'drawing_checklist_complete', 'merge_verified'] as const;
 export type PointEvent = typeof pointEvents[number];
 export interface PointTransaction { id: string; agentId: string; reviewVersion: string; event: PointEvent; points: number; createdAt: string }

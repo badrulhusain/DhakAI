@@ -16,7 +16,7 @@ manager.restore(await store.listRuns());
 const groqProvider = process.env.GROQ_API_KEY && process.env.GROQ_MODEL ? new GroqQuizProvider(process.env.GROQ_API_KEY, process.env.GROQ_MODEL) : undefined;
 const validationArgs = process.env.MERGE_VALIDATION_ARGS_JSON ? JSON.parse(process.env.MERGE_VALIDATION_ARGS_JSON) : undefined;
 if (validationArgs && (!Array.isArray(validationArgs) || validationArgs.some(value => typeof value !== 'string'))) throw new Error('MERGE_VALIDATION_ARGS_JSON must be a JSON array of strings.');
-const app = await createApp(manager, (process.env.ALLOWED_ORIGINS || 'http://127.0.0.1:3000,http://localhost:3000').split(',').map(s => s.trim()), { store, groqProvider, validationExecutable: process.env.MERGE_VALIDATION_EXECUTABLE, validationArgs });
+const app = await createApp(manager, (process.env.ALLOWED_ORIGINS || 'http://127.0.0.1:3000,http://localhost:3000').split(',').map(s => s.trim()), { store, groqProvider, validationExecutable: process.env.MERGE_VALIDATION_EXECUTABLE, validationArgs, reviewerMode: process.env.ENABLE_DEMO_REVIEWER_MODE === 'true' });
 const port = Number(process.env.PORT || 4000);
 app.server.listen(port, '127.0.0.1', () => console.log(`Agent Classroom backend: http://127.0.0.1:${port}`));
 let closing = false;

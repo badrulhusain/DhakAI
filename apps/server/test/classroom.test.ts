@@ -27,7 +27,7 @@ test('full HTTP / PTY / WebSocket demo, isolation, duplicate rejection, replay, 
   const headers = { Origin: origin, 'Content-Type': 'application/json' };
   try {
     const health = await fetch(`${base}/health`); assert.equal(health.status, 200); assert.equal((await health.json() as { status: string }).status, 'ok');
-    const dependencies = await fetch(`${base}/api/dependencies`, { headers }); assert.equal(dependencies.status, 200); assert.deepEqual(await dependencies.json(), { database: { mode: 'local', available: true, message: 'Local demo storage available' }, quizProvider: { mode: 'unavailable', configured: false, message: 'Groq is not configured. Bundled demo agents still use the Demo quiz.' } });
+    const dependencies = await fetch(`${base}/api/dependencies`, { headers }); assert.equal(dependencies.status, 200); assert.deepEqual(await dependencies.json(), { database: { mode: 'local', available: true, message: 'Local demo storage available' }, quizProvider: { mode: 'unavailable', configured: false, message: 'Groq is not configured. Bundled demo agents still use the Demo quiz.' }, reviewerMode: { enabled: false, label: 'Reviewer mode disabled' } });
     assert.equal((await fetch(`${base}/api/state`)).status, 403);
     assert.equal((await fetch(`${base}/api/state`, { headers: { Origin: 'https://evil.example' } })).status, 403);
     assert.equal((await fetch(`${base}/api/agents`, { method: 'POST', headers, body: JSON.stringify({ runner: 'shell', task: 'x' }) })).status, 400);
