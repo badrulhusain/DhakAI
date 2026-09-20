@@ -3,7 +3,14 @@ import { chmod, readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 const require = createRequire(import.meta.url);
-const root = path.dirname(require.resolve('node-pty/package.json'));
+let root;
+try {
+  root = path.dirname(require.resolve('node-pty/package.json'));
+} catch {
+  // node-pty is not installed or resolved in this workspace context
+  process.exit(0);
+}
+
 if (process.platform === 'darwin') {
   for (const base of ['prebuilds', 'build']) {
     const dir = path.join(root, base);
