@@ -16,7 +16,7 @@ manager.restore(await store.listRuns());
 const groqProvider = process.env.GROQ_API_KEY && process.env.GROQ_MODEL ? new GroqQuizProvider(process.env.GROQ_API_KEY, process.env.GROQ_MODEL) : undefined;
 const validationArgs = process.env.MERGE_VALIDATION_ARGS_JSON ? JSON.parse(process.env.MERGE_VALIDATION_ARGS_JSON) : undefined;
 if (validationArgs && (!Array.isArray(validationArgs) || validationArgs.some(value => typeof value !== 'string'))) throw new Error('MERGE_VALIDATION_ARGS_JSON must be a JSON array of strings.');
-const origins = (process.env.ALLOWED_ORIGINS || 'http://127.0.0.1:3000,http://localhost:3000').split(',').map(value => value.trim()).filter(Boolean).map(value => {
+const origins = (process.env.ALLOWED_ORIGINS || 'http://127.0.0.1:3000,http://localhost:3000').split(',').map(value => value.trim().replace(/\/+$/, '')).filter(Boolean).map(value => {
   const url = new URL(value); if (!['http:', 'https:'].includes(url.protocol) || url.origin !== value) throw new Error(`ALLOWED_ORIGINS contains an invalid bare origin: ${value}`); return url.origin;
 });
 if (!origins.length) throw new Error('ALLOWED_ORIGINS must contain at least one exact frontend origin.');
@@ -28,4 +28,4 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT m
 app.server.on('error', error => { console.error('Agent Classroom backend failed:', error); process.exitCode = 1; });
 app.server.listen(port, host, () => console.log(`Agent Classroom backend listening on http://${host}:${port}`));
 let closing = false;
-for (const signal of ['SIGINT','SIGTERM'] as const) process.on(signal, () => { if (closing) return; closing = true; void app.close().then(() => process.exit(0)); });
+for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => { if (closing) return; closing = true; void app.close().then(() => process.exit(0)); });
