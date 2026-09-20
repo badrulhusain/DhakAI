@@ -66,6 +66,7 @@ test('quiz hides answer keys, grades on server, retries, passes, caches, and ded
   try {
     const quiz = await f.quizzes.generate(f.agent.id); assert.equal(quiz.label, 'Demo quiz'); assert.equal(quiz.questions.length, 3);
     assert.equal(JSON.stringify(quiz).includes('correctOptionId'), false); assert.equal(JSON.stringify(quiz).includes('The returned greeting now'), false);
+    const diagram = await f.quizzes.generateDiagram(f.agent.id); assert.equal(diagram.title, 'Task title validation flow'); assert.ok(diagram.nodes.some(node => node.kind === 'decision')); assert.ok(diagram.edges.some(edge => edge.label === 'Yes'));
     assert.equal((await f.quizzes.generate(f.agent.id)).id, quiz.id);
     const submissionId = randomUUID(); const wrong = await f.quizzes.submit(f.agent.id, { version: quiz.version, quizId: quiz.id, submissionId, answers: quiz.questions.map(question => ({ questionId: question.id, optionId: 'b' })) });
     assert.equal(wrong.score, 0); assert.equal(wrong.passed, false); assert.equal(wrong.feedback.length, 3); assert.equal((await f.quizzes.submit(f.agent.id, { version: quiz.version, quizId: quiz.id, submissionId, answers: quiz.questions.map(question => ({ questionId: question.id, optionId: 'b' })) })).id, wrong.id); assert.equal((await f.store.listAttempts(f.agent.id, quiz.version)).length, 1);

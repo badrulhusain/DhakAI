@@ -38,8 +38,28 @@ export type ServiceErrorCode =
 export interface DependencyStatus {
   database: { mode: 'local' | 'supabase'; available: boolean; message: string };
   quizProvider: { mode: 'demo' | 'groq' | 'unavailable'; configured: boolean; message: string; model?: string };
+  codex?: { available: boolean; message: string };
   reviewerMode?: { enabled: boolean; label: string };
 }
+export const learningDiagramSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  summary: z.string().trim().min(1).max(500),
+  nodes: z.array(z.object({
+    id: z.string().regex(/^[a-z][a-z0-9_-]{0,39}$/i),
+    label: z.string().trim().min(1).max(120),
+    kind: z.enum(['start', 'process', 'decision', 'result', 'error', 'test']),
+  }).strict()).min(2).max(8),
+  edges: z.array(z.object({
+    from: z.string().regex(/^[a-z][a-z0-9_-]{0,39}$/i),
+    to: z.string().regex(/^[a-z][a-z0-9_-]{0,39}$/i),
+    label: z.string().trim().max(50).optional(),
+  }).strict()).min(1).max(12),
+}).strict().superRefine((diagram, context) => {
+  const ids = new Set(diagram.nodes.map(node => node.id));
+  if (ids.size !== diagram.nodes.length) context.addIssue({ code: z.ZodIssueCode.custom, message: 'Diagram node IDs must be unique.' });
+  for (const edge of diagram.edges) if (!ids.has(edge.from) || !ids.has(edge.to) || edge.from === edge.to) context.addIssue({ code: z.ZodIssueCode.custom, message: 'Every diagram edge must connect two different declared nodes.' });
+});
+export type LearningDiagram = z.infer<typeof learningDiagramSchema>;
 export const optionSchema = z.object({ id: z.string().min(1).max(80), text: z.string().min(1).max(1000) }).strict();
 export const evidenceSchema = z.object({ fileId: z.string().regex(/^[a-f0-9]{64}$/), path: z.string().min(1).max(4096), excerpt: z.string().min(1).max(3000) }).strict();
 export const quizQuestionPrivateSchema = z.object({

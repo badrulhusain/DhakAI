@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, cp } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,10 +11,11 @@ import { git, inspectRepository } from '../src/git.js';
 import { appendOutput, OUTPUT_LIMIT } from '../src/terminal.js';
 import { clientMessageSchema } from '@classroom/shared';
 const demoScript = fileURLToPath(new URL('../../../scripts/demo-runner.mjs', import.meta.url));
+const demoSample = fileURLToPath(new URL('../../../samples/demo', import.meta.url));
 const origin = 'http://127.0.0.1:3000';
 async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), 'classroom-test-')); const repo = path.join(root, 'repo'); await mkdir(repo);
-  await git(repo, 'init', '-b', 'main'); await writeFile(path.join(repo, 'greet.js'), 'export function greet(name) { return `Hello, ${name}`; }\n');
+  await cp(demoSample, repo, { recursive: true }); await git(repo, 'init', '-b', 'main');
   await git(repo, 'add', '.'); await git(repo, '-c', 'user.name=Test', '-c', 'user.email=test@localhost', 'commit', '-m', 'Initial');
   const config = { repo, demoRepo: repo, demoScript, worktreeRoot: path.join(root, 'worktrees'), codexExecutable: '/missing/codex', stopTimeout: 150 };
   return { root, repo, config, cleanup: () => rm(root, { recursive: true, force: true }) };
@@ -27,7 +28,7 @@ test('full HTTP / PTY / WebSocket demo, isolation, duplicate rejection, replay, 
   const headers = { Origin: origin, 'Content-Type': 'application/json' };
   try {
     const health = await fetch(`${base}/health`); assert.equal(health.status, 200); assert.equal((await health.json() as { status: string }).status, 'ok');
-    const dependencies = await fetch(`${base}/api/dependencies`, { headers }); assert.equal(dependencies.status, 200); assert.deepEqual(await dependencies.json(), { database: { mode: 'local', available: true, message: 'Local demo storage available' }, quizProvider: { mode: 'unavailable', configured: false, message: 'Groq is not configured. Bundled demo agents still use the Demo quiz.' }, reviewerMode: { enabled: false, label: 'Reviewer mode disabled' } });
+    const dependencies = await fetch(`${base}/api/dependencies`, { headers }); assert.equal(dependencies.status, 200); assert.deepEqual(await dependencies.json(), { database: { mode: 'local', available: true, message: 'Local demo storage available' }, quizProvider: { mode: 'unavailable', configured: false, message: 'Groq is not configured. Bundled demo agents still use the Demo quiz.' }, codex: { available: false, message: 'Codex CLI executable was not found. Demo mode remains available.' }, reviewerMode: { enabled: false, label: 'Reviewer mode disabled' } });
     assert.equal((await fetch(`${base}/api/state`)).status, 403);
     assert.equal((await fetch(`${base}/api/state`, { headers: { Origin: 'https://evil.example' } })).status, 403);
     assert.equal((await fetch(`${base}/api/agents`, { method: 'POST', headers, body: JSON.stringify({ runner: 'shell', task: 'x' }) })).status, 400);
@@ -45,11 +46,12 @@ test('full HTTP / PTY / WebSocket demo, isolation, duplicate rejection, replay, 
     second.ws.send(JSON.stringify({ type: 'resize', cols: 100, rows: 30 })); second.ws.send(JSON.stringify({ type: 'input', data: '\r' }));
     await until(() => manager.get(agent.id).record.status === 'completed');
     await until(() => second.messages.some(m => m.type === 'status' && m.agent.status === 'completed'));
-    assert.match(await readFile(path.join(agent.worktree, 'greet.js'), 'utf8'), /\$\{name\}!/);
-    assert.doesNotMatch(await readFile(path.join(f.repo, 'greet.js'), 'utf8'), /\$\{name\}!/);
+    assert.match(await readFile(path.join(agent.worktree, 'task.js'), 'utf8'), /title\.trim\(\)\.length === 0/);
+    assert.match(await readFile(path.join(agent.worktree, 'task.test.js'), 'utf8'), /whitespace-only title/);
+    assert.doesNotMatch(await readFile(path.join(f.repo, 'task.js'), 'utf8'), /title\.trim/);
     assert.equal(await git(f.repo, 'status', '--porcelain'), ''); assert.equal(await git(f.repo, 'branch', '--show-current'), 'main');
     const reviewResponse = await fetch(`${base}/api/agents/${agent.id}/review`, { headers }); assert.equal(reviewResponse.status, 200);
-    const review = await reviewResponse.json() as any; assert.equal(review.files.length, 1);
+    const review = await reviewResponse.json() as any; assert.equal(review.files.length, 2);
     const mergeOperation = await fetch(`${base}/api/agents/${agent.id}/merge`, { headers }); assert.equal(mergeOperation.status, 200); assert.deepEqual(await mergeOperation.json(), { operation: null });
     assert.equal((await fetch(`${base}/api/agents/${agent.id}/review/files/${'0'.repeat(64)}?version=${review.version}`, { headers })).status, 404);
     assert.equal((await fetch(`${base}/api/agents/${agent.id}/explanation`, { method: 'PUT', headers, body: JSON.stringify({ version: review.version, answers: { problem: 'x', solution: 'y', edgeCase: 'z' }, intent: 'complete' }) })).status, 400);

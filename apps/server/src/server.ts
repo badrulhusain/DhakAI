@@ -13,6 +13,7 @@ import { MergeService } from './merge-service.js';
 import { errorBody, ServiceError } from './service-error.js';
 import { DrawingService } from './drawing-service.js';
 import { RewardService } from './reward-service.js';
+import { resolveExecutable } from './runners/index.js';
 export interface AppOptions { store?: LearningStore; groqProvider?: QuizProvider; validationExecutable?: string; validationArgs?: string[]; reviewerMode?: boolean }
 export async function createApp(manager: AgentManager, origins: string[], options: AppOptions = {}) {
   const store = options.store ?? createLearningStore({ mode: 'local', directory: manager.config.dataRoot ?? path.join(manager.config.worktreeRoot, '..', 'data') });
@@ -33,7 +34,12 @@ export async function createApp(manager: AgentManager, origins: string[], option
     const reply = (status: number, body: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
     try {
       if (req.method === 'GET' && req.url === '/health') { reply(200, { status: 'ok', service: 'agent-classroom', pid: process.pid }); return; }
-      if (req.method === 'GET' && req.url === '/api/dependencies') { reply(200, { database: await store.health(), quizProvider: quizzes.providerStatus(), reviewerMode: { enabled: drawings.reviewerMode, label: drawings.reviewerMode ? 'Local demo reviewer mode' : 'Reviewer mode disabled' } }); return; }
+      if (req.method === 'GET' && req.url === '/api/dependencies') {
+        const codex = await resolveExecutable(manager.config.codexExecutable)
+          .then(() => ({ available: true, message: 'Codex CLI executable found. Authentication is checked only when a Codex run starts.' }))
+          .catch(() => ({ available: false, message: 'Codex CLI executable was not found. Demo mode remains available.' }));
+        reply(200, { database: await store.health(), quizProvider: quizzes.providerStatus(), codex, reviewerMode: { enabled: drawings.reviewerMode, label: drawings.reviewerMode ? 'Local demo reviewer mode' : 'Reviewer mode disabled' } }); return;
+      }
       if (req.method === 'GET' && req.url === '/api/state') {
         let repository = null, repositoryError = null;
         try { repository = { ...await inspectRepository(manager.config.repo), demoAllowed: await realpath(manager.config.repo) === await realpath(manager.config.demoRepo).catch(() => '') }; } catch (e) { repositoryError = (e as Error).message; }
@@ -61,11 +67,12 @@ export async function createApp(manager: AgentManager, origins: string[], option
           const explanation = await reviews.save(id, JSON.parse(body)); const achievements = explanation.status === 'completed' ? await rewards.sync(id, explanation.version).catch(() => ({ awardedEvents: [], awardedBadges: [] })) : { awardedEvents: [], awardedBadges: [] }; reply(200, { explanation, achievements }); return;
         }
       }
-      const learningRoute = url.pathname.match(/^\/api\/agents\/([\w-]+)\/(quiz(?:\/attempts)?|merge(?:\/eligibility)?)$/);
+      const learningRoute = url.pathname.match(/^\/api\/agents\/([\w-]+)\/(quiz(?:\/attempts)?|diagram|merge(?:\/eligibility)?)$/);
       if (learningRoute) {
         const [, id, route] = learningRoute;
         if (req.method === 'GET' && route === 'quiz') { reply(200, { quiz: await quizzes.get(id) }); return; }
         if (req.method === 'POST' && route === 'quiz') { reply(200, { quiz: await quizzes.generate(id) }); return; }
+        if (req.method === 'POST' && route === 'diagram') { reply(200, { diagram: await quizzes.generateDiagram(id) }); return; }
         if (req.method === 'POST' && route === 'quiz/attempts') { const attempt = await quizzes.submit(id, await readJson(req, 64 * 1024) as QuizSubmission); const achievements = attempt.passed ? await rewards.sync(id, attempt.version).catch(() => ({ awardedEvents: [], awardedBadges: [] })) : { awardedEvents: [], awardedBadges: [] }; reply(200, { attempt, achievements }); return; }
         if (req.method === 'GET' && route === 'merge/eligibility') { reply(200, await merges.eligibility(id)); return; }
         if (req.method === 'GET' && route === 'merge') { reply(200, { operation: await merges.operation(id) }); return; }

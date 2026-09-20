@@ -22,9 +22,22 @@ const old = await readFile(registry, 'utf8').then(JSON.parse).catch(() => null);
 const lockPath = registry + '.lock'; const lock = await open(lockPath, 'wx').catch(() => { throw new Error('Service startup lock exists. Check project processes before removing .runtime/services.json.lock.'); });
 const production = process.argv[2] === 'production';
 const env = { ...process.env, PORT: String(backendPort), WEB_PORT: String(webPort), NEXT_PUBLIC_BACKEND_URL: `http://127.0.0.1:${backendPort}`, ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || `http://127.0.0.1:${webPort},http://localhost:${webPort}`, NEXT_DIST_DIR: production ? '.next' : '.next-dev' };
-const children = [spawn(process.execPath, [path.join(root, 'node_modules/tsx/dist/cli.mjs'), 'src/index.ts'], { cwd: path.join(root, 'apps/server'), env, stdio: 'inherit' }), spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), production ? 'start' : 'dev', '--hostname', '127.0.0.1', '--port', String(webPort)], { cwd: path.join(root, 'apps/web'), env, stdio: 'inherit' })];
-await writeFile(registry, JSON.stringify({ root, pid: process.pid, identity: stamp(process.pid), webPort, backendPort, children: children.map(p => ({ pid: p.pid, identity: stamp(p.pid) })) }));
-console.log(`Agent Classroom: http://127.0.0.1:${webPort} · backend ${backendPort}`);
+const children = [];
 let closing = false;
 async function stop() { if (closing) return; closing = true; for (const child of children) if (child.exitCode === null) child.kill('SIGTERM'); const force = setTimeout(() => { for (const child of children) if (child.exitCode === null) child.kill('SIGKILL'); }, 8000); await Promise.all(children.map(child => child.exitCode !== null ? Promise.resolve() : new Promise(resolve => child.once('exit', resolve)))); clearTimeout(force); await rm(registry, { force: true }); await lock.close(); await rm(lockPath, { force: true }); process.exit(0); }
-process.on('SIGINT', stop); process.on('SIGTERM', stop); for (const child of children) child.on('exit', () => { if (!closing) void stop(); });
+process.on('SIGINT', stop); process.on('SIGTERM', stop);
+const backend = spawn(process.execPath, [path.join(root, 'node_modules/tsx/dist/cli.mjs'), 'src/index.ts'], { cwd: path.join(root, 'apps/server'), env, stdio: 'inherit' });
+children.push(backend); backend.on('exit', () => { if (!closing) void stop(); });
+const readyDeadline = Date.now() + 20_000;
+while (true) {
+  if (backend.exitCode !== null) throw new Error(`Backend exited before readiness with code ${backend.exitCode}.`);
+  try { const response = await fetch(`http://127.0.0.1:${backendPort}/health`, { signal: AbortSignal.timeout(750) }); if (response.ok) break; } catch {}
+  if (Date.now() >= readyDeadline) { backend.kill('SIGTERM'); throw new Error(`Backend did not become ready at http://127.0.0.1:${backendPort}/health within 20 seconds.`); }
+  await new Promise(resolve => setTimeout(resolve, 150));
+}
+console.log(`Backend ready: http://127.0.0.1:${backendPort}/health`);
+const web = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), production ? 'start' : 'dev', '--hostname', '127.0.0.1', '--port', String(webPort)], { cwd: path.join(root, 'apps/web'), env, stdio: 'inherit' });
+children.push(web); web.on('exit', () => { if (!closing) void stop(); });
+await writeFile(registry, JSON.stringify({ root, pid: process.pid, identity: stamp(process.pid), webPort, backendPort, children: children.map(p => ({ pid: p.pid, identity: stamp(p.pid) })) }));
+console.log(`Frontend: http://127.0.0.1:${webPort}`);
+console.log(`Backend health: http://127.0.0.1:${backendPort}/health`);
