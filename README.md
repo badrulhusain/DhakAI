@@ -133,7 +133,7 @@ The recommended demo flow is:
 *A short demo/pitch video is strongly recommended.* Show the project working and briefly explain the problem, solution, and key features.
 
 ## Screenshots
-
+available in this directory:dhakai/test-results
 ### Agent Workspace and Live Terminal
 
 ![Agent workspace and terminal](./docs/screenshots/01-agent-workspace.png)
