@@ -3,5 +3,5 @@
   "framework": null,
   "installCommand": "npm ci",
   "buildCommand": "npm run vercel-build",
-  "outputDirectory": ".next"
+  "outputDirectory": "apps/web/.next"
 }
