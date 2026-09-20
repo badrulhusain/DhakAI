@@ -1,10 +1,25 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import dotenv from 'dotenv';
+import { existsSync, readFileSync } from 'node:fs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-dotenv.config({ path: path.join(root, '.env') });
+const envFile = path.join(root, '.env');
+if (existsSync(envFile)) {
+  try {
+    const content = readFileSync(envFile, 'utf8');
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq > 0) {
+        const key = trimmed.slice(0, eq).trim();
+        const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+        if (!(key in process.env)) process.env[key] = val;
+      }
+    }
+  } catch { }
+}
 const backendPort = Number(process.env.PORT || 4000);
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || `http://127.0.0.1:${backendPort}`;
 let parsedBackend;
