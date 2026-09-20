@@ -1,1 +1,27 @@
-{"name":"@classroom/web","private":true,"scripts":{"dev":"next dev --hostname 127.0.0.1","build":"next build","start":"next start --hostname 127.0.0.1"},"dependencies":{"@classroom/shared":"*","@xterm/addon-fit":"^0.10.0","@xterm/xterm":"^5.5.0","canvas-confetti":"1.9.4","lucide-react":"^0.468.0","next":"^16.3.5","react":"^19.0.0","react-diff-viewer-continued":"^4.4.0","react-dom":"^19.0.0","react-sketch-canvas":"8.0.0"},"devDependencies":{"@types/canvas-confetti":"1.9.0","@types/react":"^19.0.0","@types/react-dom":"^19.0.0"}}
+{
+    "name": "@classroom/web",
+    "private": true,
+    "scripts": {
+        "dev": "next dev --hostname 127.0.0.1",
+        "build": "next build",
+        "vercel-build": "node ../../scripts/build.mjs",
+        "start": "next start --hostname 127.0.0.1"
+    },
+    "dependencies": {
+        "@classroom/shared": "*",
+        "@xterm/addon-fit": "^0.10.0",
+        "@xterm/xterm": "^5.5.0",
+        "canvas-confetti": "1.9.4",
+        "lucide-react": "^0.468.0",
+        "next": "^16.3.5",
+        "react": "^19.0.0",
+        "react-diff-viewer-continued": "^4.4.0",
+        "react-dom": "^19.0.0",
+        "react-sketch-canvas": "8.0.0"
+    },
+    "devDependencies": {
+        "@types/canvas-confetti": "1.9.0",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0"
+    }
+}
