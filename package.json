@@ -1,6 +1,7 @@
 {
   "name": "agent-classroom",
   "private": true,
+  "engines": { "node": ">=22" },
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -22,6 +23,7 @@
     "verify:groq": "tsx scripts/verify-external.ts --groq",
     "verify:codex": "tsx scripts/verify-external.ts --codex",
     "build": "node scripts/build.mjs",
+    "vercel-build": "node scripts/build.mjs",
     "prestart": "node scripts/setup-demo.mjs",
     "start": "node scripts/services.mjs production",
     "postinstall": "node scripts/prepare-pty.mjs",

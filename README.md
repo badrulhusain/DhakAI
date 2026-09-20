@@ -2,125 +2,108 @@
 
 ## Overview
 
-Agent Classroom is an educational coding-agent workspace that helps learners understand AI-generated code before accepting it.
+Agent Classroom is an educational coding-agent dashboard that helps learners understand AI-generated code before merging it.
 
-A learner gives Codex a programming task and watches the agent work through a live browser terminal. Every agent runs on its own Git branch and isolated worktree. After the agent finishes, the learner reviews the exact code changes, explains the solution, completes a quiz generated from the diff, and unlocks a guarded merge only after demonstrating understanding.
+A learner gives Codex a programming task, watches the agent work through a live browser terminal, reviews the resulting Git diff, explains the solution, and completes a code-specific quiz. Merge remains locked until the learner passes the required understanding checks.
 
-The project turns a coding agent from a code-generation tool into an interactive learning experience.
+Each agent works in its own Git branch and isolated worktree, keeping the base repository protected.
 
 ## Problem Statement
 
-Coding agents can produce working software faster than many learners can understand it.
+Coding agents can generate software faster than learners can understand it.
 
 This creates several problems:
 
-- Learners may accept generated code without understanding how it works.
-- Terminal activity and large diffs can be difficult for beginners to follow.
-- Existing coding-agent dashboards focus on task completion rather than learning.
+- Learners may accept code without understanding how it works.
+- Raw terminal output and large diffs can be difficult for beginners to follow.
+- Existing agent dashboards focus on completing tasks rather than teaching.
 - Teachers have little evidence that a learner understood an AI-generated solution.
-- Incorrect, outdated, or unreviewed changes may be merged into the main branch.
+- Unreviewed or outdated code can accidentally be merged into the main branch.
 
-The challenge is to preserve the speed of AI-assisted development while keeping the learner actively involved and accountable.
+We wanted to preserve the speed of AI-assisted programming while keeping learners actively involved in reasoning, reviewing, and validating the generated code.
 
 ## Solution
 
-Agent Classroom introduces a **Proof-of-Learning Gate** between AI-generated code and the final Git merge.
+Agent Classroom adds a **Proof-of-Learning Gate** between AI-generated code and the final Git merge.
 
 The workflow is:
 
-1. The learner gives an agent a coding task.
+1. The learner creates a task and selects an agent profile.
 2. The backend creates an isolated Git worktree and branch.
 3. The agent’s terminal is streamed live to the browser.
-4. The learner reviews the resulting code changes.
-5. The learner explains the solution in their own words.
-6. A quiz is generated from the exact reviewed diff.
-7. The backend grades the answers and keeps merge locked until the quiz is passed.
-8. Repository safety checks run before merging.
-9. The learner can download a Learning Proof Report containing evidence from the session.
+4. The learner predicts important behavior while the agent works.
+5. The completed changes are presented as a guided code review.
+6. The learner explains the solution in their own words.
+7. A quiz is generated from the exact reviewed diff.
+8. The backend grades the quiz and keeps merge locked until it is passed.
+9. Repository safety checks run before the reviewed changes are merged.
+10. A Learning Proof PDF records the learner’s journey and results.
 
-This creates a visible connection between watching an AI work, understanding its decisions, and safely accepting its code.
+This turns the coding agent into an interactive teaching tool rather than a black-box code generator.
 
 ## Features
 
-- **Isolated agent workspaces:** Every coding-agent run receives its own Git branch and worktree, protecting the base checkout.
-
-- **Live browser terminal:** Agent output is streamed through WebSocket and PTY infrastructure, with browser keyboard input and start/stop controls.
-
-- **Demo and Codex runners:** A deterministic demo works without credentials, while the Codex runner uses the locally installed Codex CLI.
-
-- **Custom Codex profiles:** Learners can select an allowed model and reasoning level or use presets such as Fast Fix, Balanced Builder, and Deep Debugger.
-
-- **Agent lifecycle tracking:** The dashboard shows agent creation, running, stopping, completion, failure, review, and merge states.
-
-- **Agent Activity Stream:** Important actions such as inspecting files, editing code, and running tests are presented as understandable learning events.
-
-- **Pause and Predict:** The learner predicts an important behavior or coding decision before the demo agent reveals its solution.
-
-- **Guided code review:** Changed files, additions, deletions, and before-and-after code are displayed in a readable diff experience.
-
-- **Change Story:** The application summarizes the problem, implementation decision, evidence, and possible risks behind a code change.
-
-- **Paste-free explanation:** Learners describe the problem, solution, and edge cases in their own words before continuing.
-
-- **Diff-generated quiz:** Groq can generate three evidence-based questions from the reviewed code changes.
-
-- **Server-side grading:** Correct answers and passing state remain on the backend. Failed attempts keep merge locked.
-
-- **Guarded Git merge:** Merge is enabled only after the explanation and quiz gates pass and repository safety checks succeed.
-
-- **Solution Map:** Learners can draw or map the flow of the solution, including inputs, decisions, outputs, and error paths.
-
-- **Points and badges:** Learners earn points for completing explanations, quizzes, solution maps, and verified merges.
-
-- **Learning Proof Report:** A downloadable PDF records the task, learning journey, explanation, quiz result, score, drawing, changed files, and merge commit.
-
-- **Safe demo mode:** The full educational flow can be demonstrated locally without Codex, Groq, or Supabase credentials.
+- Live browser terminal for Codex and scripted demo agents
+- Isolated Git branch and worktree for every agent run
+- Agent start, stop, completion, and failure states
+- Configurable Codex model and reasoning profile
+- Fast Fix, Balanced Builder, and Deep Debugger presets
+- Agent Activity Stream with understandable progress events
+- Pause-and-Predict learning checkpoints
+- Changed-file list and colored Git diff viewer
+- Guided Change Story explaining the problem, decision, evidence, and risk
+- Paste-free problem-solving explanation activity
+- Groq-generated quizzes based on the reviewed code
+- Server-side grading with feedback and retries
+- Merge button locked until learning and repository checks pass
+- Detection of dirty repositories, stale branches, and merge conflicts
+- Optional Solution Map drawing activity
+- Learning points and achievement badges
+- Supabase persistence for learning records
+- Downloadable Learning Proof PDF
+- Deterministic demo mode that works without external credentials
 
 ## Tech Stack
 
 - **Frontend:** Next.js, React, TypeScript, shadcn/ui, xterm.js
-
 - **Backend:** Node.js, TypeScript, WebSocket, node-pty, execa
-
-- **Database:** Supabase PostgreSQL, with a local demo-storage option
-
-- **APIs / Services:** Codex CLI for coding-agent execution, Groq for structured quiz generation, Supabase Storage for private drawing assets
-
-- **Hosting / Deployment:** [Add frontend deployment platform and URL]. Agent execution currently requires a local or self-hosted Node backend with access to Git, PTY processes, and the target repository.
-
-- **Other Tools:** simple-git, React diff viewer, React sketch canvas, `@react-pdf/renderer`, Playwright, Git worktrees
+- **Database:** Supabase PostgreSQL with a local demo-storage option
+- **APIs / Services:** OpenAI Codex CLI, Groq API, Supabase Storage
+- **Hosting / Deployment:** [Add hosting provider and deployed URL]
+- **Other Tools:** Git worktrees, simple-git, React diff viewer, React sketch canvas, `@react-pdf/renderer`, Playwright
 
 ## Codex / OpenAI Usage
 
-Codex was used both as part of the product and throughout the hackathon development process.
+Codex was used both inside Agent Classroom and throughout the hackathon development process.
 
-### Inside the product
+### Codex inside the product
 
-Agent Classroom launches the locally installed Codex CLI inside an isolated Git worktree. The learner can choose an allowed Codex model and reasoning profile before starting a task.
+Agent Classroom launches the locally installed Codex CLI inside an isolated Git worktree. The learner can choose an allowed Codex model and reasoning profile or use the default Codex configuration.
 
-The application streams the Codex terminal to the browser, tracks the agent lifecycle, collects its Git changes, and connects the completed work to the educational review and merge process.
+The application streams the Codex terminal to the browser, tracks the agent’s lifecycle, collects its Git changes, and connects the completed work to the review, quiz, and merge process.
 
-Codex remains responsible for solving the coding task. Agent Classroom adds the learning, review, scoring, and repository-safety layers around it.
+Codex solves the programming task. Agent Classroom provides the educational and repository-safety layer around it.
 
-### During development
+### AI-assisted development
 
-Codex and ChatGPT assisted with:
+Codex, ChatGPT, and other AI tools helped us with:
 
-- Refining the product idea and educational workflow
-- Dividing development into five practical phases
-- Designing the frontend and backend architecture
-- Planning Git worktree and PTY process management
-- Generating and reviewing TypeScript implementation
-- Debugging frontend, backend, WebSocket, and port issues
-- Designing immutable diff-review versions
-- Planning Supabase persistence and security policies
-- Integrating Groq structured quiz generation
-- Designing guarded merge checks
-- Creating test scenarios and error states
-- Improving the interface and presentation story
-- Writing documentation and hackathon submission material
+- Product ideation and problem definition
+- Architecture planning
+- Next.js and Node.js implementation
+- PTY and WebSocket integration
+- Git worktree management
+- Diff collection and review design
+- Supabase schema and persistence planning
+- Groq structured quiz integration
+- Server-side grading logic
+- Safe merge checks
+- UI/UX exploration
+- Debugging
+- Test planning and generation
+- Documentation and hackathon presentation material
 
-AI accelerated development, while the team selected the final architecture, product decisions, safety rules, and educational experience.
+AI accelerated implementation and helped us explore different approaches. The team made the final product, architecture, safety, and educational-design decisions.
 
 ## Demo
 
@@ -128,53 +111,54 @@ AI accelerated development, while the team selected the final architecture, prod
 
 [Add deployed project link]
 
-If the agent backend runs locally, add the public frontend link and explain how judges can access the hosted or recorded agent flow.
+The agent backend requires access to Git, local worktrees, and PTY processes. If the public deployment does not support those capabilities, use the demo video or run the project locally.
 
 ### Demo / Pitch Video
 
 [Add demo or pitch video link]
 
-The recommended video structure is:
+The recommended demo flow is:
 
-1. Show the problem: learners accept AI-generated code without understanding it.
-2. Launch the sample validation task.
-3. Show the live terminal and isolated worktree.
-4. Complete the Pause and Predict moment.
-5. Review the Change Story and code diff.
-6. Submit an incorrect quiz answer and show merge remaining locked.
-7. Pass the quiz and unlock merge.
-8. Merge the reviewed changes.
-9. Download the Learning Proof Report.
+1. Show the whitespace-only task-title bug.
+2. Launch a Codex or demo agent.
+3. Watch the live terminal and agent activity.
+4. Complete a Pause-and-Predict checkpoint.
+5. Review the Change Story and Git diff.
+6. Explain the solution.
+7. Submit one incorrect quiz answer and show that merge remains locked.
+8. Retry and pass the quiz.
+9. Merge the reviewed code.
+10. Download the Learning Proof PDF.
 
-Keep the video between three and five minutes.
+*A short demo/pitch video is strongly recommended.* Show the project working and briefly explain the problem, solution, and key features.
 
 ## Screenshots
 
-### Agent Mission and Live Terminal
+### Agent Workspace and Live Terminal
 
-![Agent mission and terminal](./docs/screenshots/01-agent-mission.png)
+![Agent workspace and terminal](./docs/screenshots/01-agent-workspace.png)
 
-### Pause and Predict
+### Prediction Checkpoint
 
-![Prediction checkpoint](./docs/screenshots/02-prediction-checkpoint.png)
+![Pause and Predict checkpoint](./docs/screenshots/02-prediction-checkpoint.png)
 
-### Change Story and Diff Review
+### Diff Review and Change Story
 
-![Change review](./docs/screenshots/03-change-review.png)
+![Diff review](./docs/screenshots/03-diff-review.png)
 
-### Quiz and Locked Merge
+### Quiz and Merge Gate
 
-![Quiz gate](./docs/screenshots/04-quiz-gate.png)
+![Quiz and locked merge](./docs/screenshots/04-quiz-merge-gate.png)
 
 ### Solution Map and Learning Score
 
-![Solution map](./docs/screenshots/05-solution-map.png)
+![Solution map and score](./docs/screenshots/05-solution-map.png)
 
-### Successful Merge and Learning Proof
+### Learning Proof Report
 
-![Learning proof](./docs/screenshots/06-learning-proof.png)
+![Learning Proof Report](./docs/screenshots/06-learning-proof.png)
 
-Replace these paths with the final screenshots committed to the repository.
+Replace these image paths with the final screenshots committed to the repository.
 
 ## How to Run Locally
 
@@ -182,15 +166,16 @@ Replace these paths with the final screenshots committed to the repository.
 git clone <repo-url>
 cd <project-folder>
 npm install
+npm run dev
 ```
 
-Copy the environment example:
+Copy the environment example before starting integrations:
 
 ```bash
 cp .env.example .env
 ```
 
-Configure the values required by the project. Optional live integrations may include:
+Optional live integrations may require:
 
 ```env
 SUPABASE_URL=
@@ -201,73 +186,17 @@ CODEX_EXECUTABLE=codex
 CODEX_ALLOWED_MODELS=
 ```
 
-Never expose Supabase secret keys or Groq keys through variables prefixed with `NEXT_PUBLIC_`.
-
-Set up the bundled demo:
+Set up and run the deterministic demo if the corresponding scripts are available:
 
 ```bash
 npm run demo:setup
-```
-
-Start the frontend and backend:
-
-```bash
 npm run dev
 ```
 
-Open the local URL printed by the development command.
-
-Run the verification checks:
+Run the project checks:
 
 ```bash
 npm run test
 npm run test:e2e
 npm run typecheck
-npm run lint
-npm run build
-```
-
-Stop project processes:
-
-```bash
-npm run stop
-```
-
-Reset only the generated demo resources:
-
-```bash
-npm run demo:reset
-```
-
-Update these commands if the final repository uses different script names.
-
-## Additional Notes
-
-Agent Classroom is currently a local-first hackathon MVP.
-
-The application requires a backend with access to Git, worktrees, and PTY processes. A fully static frontend deployment cannot run local coding agents by itself.
-
-The bundled demo mode provides a deterministic presentation without external credentials. Live Codex, Supabase, and Groq functionality depends on the relevant local installation, account access, environment configuration, and network availability.
-
-Current limitations may include:
-
-- The MVP is designed primarily for one local learner.
-- Freehand drawings receive completion points rather than automatic semantic correctness grades.
-- Merge conflicts are detected and explained but are not automatically resolved.
-- Available Codex models depend on the user’s CLI installation and account.
-- The quiz is a learning checkpoint and does not prove that the generated software is free of defects.
-- Teacher classes, session replay, collaborative review, and model comparison are planned future work.
-
-Future development could add:
-
-- Teacher and classroom dashboards
-- Session replay with learning checkpoints
-- Side-by-side agent-model comparison
-- Personalized misconception tracking
-- Assignment templates and grading rubrics
-- Team learning reports
-- Integration with GitHub pull requests and classroom platforms
-
-The central idea remains simple:
-
-**AI can write the code. Agent Classroom makes learners prove they understand it before it ships.**
+npm

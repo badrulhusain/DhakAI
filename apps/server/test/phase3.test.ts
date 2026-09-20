@@ -8,11 +8,15 @@ import type { AgentRecord, MergeOperation, QuizQuestionPrivate } from '@classroo
 import { createWorktree, git } from '../src/git.js';
 import { LocalLearningStore } from '../src/learning-store.js';
 import { ReviewService } from '../src/review-service.js';
-import { DemoQuizProvider, QuizService, type QuizProvider } from '../src/quiz-service.js';
+import { DemoQuizProvider, QuizService, diagramJsonSchema, type QuizProvider } from '../src/quiz-service.js';
 import { MergeService } from '../src/merge-service.js';
 import { AgentManager } from '../src/agent-manager.js';
 
 const explanation = { problem: 'The greeting was missing clear friendly punctuation after the supplied name.', solution: 'The return template now appends an exclamation mark after interpolating the name.', edgeCase: 'Test an empty string and a Unicode name to verify interpolation and punctuation.' };
+
+test('strict diagram schema requires every declared edge property', () => {
+  assert.deepEqual(diagramJsonSchema.properties.edges.items.required, ['from', 'to', 'label']);
+});
 
 class FailingMergeStore extends LocalLearningStore {
   failSucceeded = false;

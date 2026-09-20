@@ -77,7 +77,7 @@ Local JSON storage or private Supabase storage
 
 ## Technical highlights
 
-- Next.js 15 and React 19 frontend
+- Next.js 16 and React 19 frontend
 - Node HTTP and WebSocket backend with `node-pty`
 - Git branches, worktrees, immutable content hashes, and fast-forward-only merge
 - Zod validation for every learning and diagram payload
@@ -134,7 +134,7 @@ Backend, live terminal, Demo runner, review, explanation, deterministic quiz, lo
 
 ### How is this safe?
 
-It is a loopback single-user tool. Worktrees isolate files but are not a security sandbox. Codex keeps its own sandbox controls. The merge service rejects dirty or moved bases, active Git operations, unsupported files, stale reviews, missing learning gates, and mismatched trees.
+It is a single-user tool. Worktrees isolate files but are not a security sandbox. Codex keeps its own sandbox controls. The merge service rejects dirty or moved bases, active Git operations, unsupported files, stale reviews, missing learning gates, and mismatched trees.
 
 ## Impact
 
@@ -142,7 +142,7 @@ Agent Classroom can help bootcamp learners, students, onboarding developers, and
 
 ## Honest limits and next steps
 
-Today the product is deliberately single-user and local. It has no accounts, classes, teacher dashboard, collaborative review, or secure multi-tenant execution. The next meaningful step is a classroom layer with authenticated learners and teachers, while preserving the exact-version learning and merge guarantees demonstrated here.
+Today the product is deliberately single-user. It has no accounts, classes, teacher dashboard, collaborative review, or secure multi-tenant execution. The next meaningful step is a classroom layer with authenticated learners and teachers, while preserving the exact-version learning and merge guarantees demonstrated here.
 
 ## Closing line
 
