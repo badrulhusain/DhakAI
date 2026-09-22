@@ -206,3 +206,4 @@ NEXT_PUBLIC_BACKEND_URL=https://agent-classroom-api.example.com VERCEL=1 npm run
 Production uses two services: the Next.js frontend on Vercel and one persistent backend container with Git, PTY, and WebSocket support. Deploy the backend first, then import the repository into Vercel with the repository root selected. Do not set `apps/web` as Vercel's Root Directory.
 
 Follow the complete [production deployment checklist](./docs/DEPLOYMENT.md).
+Ready
