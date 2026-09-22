@@ -4,9 +4,10 @@ import { learningDiagramSchema, type AgentRecord, type LearningDiagram, type Mer
 import confetti from 'canvas-confetti';
 import DrawingScore from './drawing-score';
 import LearningDiagramView from './learning-diagram';
+import { backendFetch } from '../lib/backend-fetch';
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init); const data = await response.json();
+  const response = await backendFetch(url, init); const data = await response.json();
   if (!response.ok) throw Object.assign(new Error(data.error || 'Request failed.'), { code: data.code, status: response.status, details: data.details });
   return data;
 }

@@ -28,7 +28,7 @@ export async function createApp(manager: AgentManager, origins: string[], option
   const server = createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/health' && !req.headers.origin) { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ status: 'ok', service: 'agent-classroom', pid: process.pid })); return; }
     if (!validOrigin(req)) { res.writeHead(403); res.end('Origin not allowed.'); return; }
-    res.setHeader('Access-Control-Allow-Origin', req.headers.origin!); res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin!); res.setHeader('Access-Control-Allow-Credentials', 'true'); res.setHeader('Vary', 'Origin');
     res.setHeader('Cache-Control', 'no-store');
     if (req.method === 'OPTIONS') { res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT'); res.setHeader('Access-Control-Allow-Headers', 'Content-Type'); res.writeHead(204); res.end(); return; }
     const reply = (status: number, body: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };

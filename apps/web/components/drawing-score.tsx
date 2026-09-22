@@ -4,13 +4,14 @@ import { ReactSketchCanvas, type CanvasPath, type ReactSketchCanvasRef } from 'r
 import confetti from 'canvas-confetti';
 import { Award, Download, Eraser, Pencil, Redo2, RotateCcw, Save, Sparkles, Trash2, Undo2 } from 'lucide-react';
 import { DRAWING_CAPTION_MAX, DRAWING_CAPTION_MIN, DRAWING_TITLE_MAX, badgeKeys, nonWhitespaceLength, type BadgeKey, type DrawingChecklist, type DrawingGuide, type DrawingRecord, type ReviewerMark, type ScoreSummary } from '@classroom/shared';
+import { backendFetch } from '../lib/backend-fetch';
 
 const emptyChecklist: DrawingChecklist = { input: false, condition: false, result: false, edgeCase: false };
 const badgeLabels: Record<BadgeKey, string> = { code_reader: 'Code Reader', quiz_master: 'Quiz Master', visual_thinker: 'Visual Thinker', safe_merger: 'Safe Merger', full_journey: 'Full Journey' };
 const guideLabels: Record<DrawingGuide, string> = { blank: 'Blank', flowchart: 'Flowchart', 'before-after': 'Before and after', 'input-condition-result': 'Input → condition → result' };
 const rubricLabels = { relationship: 'Relationship to the reviewed code', flow: 'Clarity of the control or data flow', condition: 'Correct representation of the main condition', edgeCase: 'Inclusion of an error or edge case' } as const;
 
-async function api<T>(url: string, init?: RequestInit): Promise<T> { const response = await fetch(url, init); const data = await response.json(); if (!response.ok) throw Object.assign(new Error(data.error || 'Request failed.'), { code: data.code, details: data.details }); return data; }
+async function api<T>(url: string, init?: RequestInit): Promise<T> { const response = await backendFetch(url, init); const data = await response.json(); if (!response.ok) throw Object.assign(new Error(data.error || 'Request failed.'), { code: data.code, details: data.details }); return data; }
 function celebrate() { if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return; void confetti({ particleCount: 60, spread: 55, origin: { y: .75 }, disableForReducedMotion: true, scalar: .8, ticks: 130 }); }
 function guideImage(guide: DrawingGuide) {
   if (guide === 'blank') return '';

@@ -69,7 +69,7 @@ This turns the coding agent into an interactive teaching tool rather than a blac
 - **Backend:** Node.js, TypeScript, WebSocket, node-pty, execa
 - **Database:** Supabase PostgreSQL with a local demo-storage option
 - **APIs / Services:** OpenAI Codex CLI, Groq API, Supabase Storage
-- **Hosting / Deployment:** [Add hosting provider and deployed URL]
+- **Hosting / Deployment:** Vercel frontend plus one persistent backend container
 - **Other Tools:** Git worktrees, simple-git, React diff viewer, React sketch canvas, `@react-pdf/renderer`, Playwright
 
 ## Codex / OpenAI Usage
@@ -133,40 +133,39 @@ The recommended demo flow is:
 *A short demo/pitch video is strongly recommended.* Show the project working and briefly explain the problem, solution, and key features.
 
 ## Screenshots
-available in this directory:dhakai/test-results
-google drive :https://drive.google.com/file/d/1MLLA1teVkj6lglQRu1fTJjAd99ftyOqb/view?usp=sharing
+
+The verified demo screenshots are stored in `docs/demo/screenshots`. The demo recording is also available on [Google Drive](https://drive.google.com/file/d/1MLLA1teVkj6lglQRu1fTJjAd99ftyOqb/view?usp=sharing).
+
 ### Agent Workspace and Live Terminal
 
-![Agent workspace and terminal](./docs/screenshots/01-agent-workspace.png)
+![Agent workspace and terminal](./docs/demo/screenshots/02-live-terminal.png)
 
-### Prediction Checkpoint
+### Classroom Dashboard
 
-![Pause and Predict checkpoint](./docs/screenshots/02-prediction-checkpoint.png)
+![Classroom dashboard](./docs/demo/screenshots/01-dashboard.png)
 
 ### Diff Review and Change Story
 
-![Diff review](./docs/screenshots/03-diff-review.png)
+![Diff review](./docs/demo/screenshots/03-review-and-explain.png)
 
 ### Quiz and Merge Gate
 
-![Quiz and locked merge](./docs/screenshots/04-quiz-merge-gate.png)
+![Quiz and locked merge](./docs/demo/screenshots/04-quiz-retry.png)
 
 ### Solution Map and Learning Score
 
-![Solution map and score](./docs/screenshots/05-solution-map.png)
+![Solution map and score](./docs/demo/screenshots/05-drawing-unlocked.png)
 
 ### Learning Proof Report
 
-![Learning Proof Report](./docs/screenshots/06-learning-proof.png)
-
-Replace these image paths with the final screenshots committed to the repository.
+![Completed learning journey](./docs/demo/screenshots/06-merge-success.png)
 
 ## How to Run Locally
 
 ```bash
-git clone <repo-url>
-cd <project-folder>
-npm install
+git clone https://github.com/badrulhusain/DhakAI.git
+cd DhakAI
+npm ci
 npm run dev
 ```
 
@@ -200,4 +199,11 @@ Run the project checks:
 npm run test
 npm run test:e2e
 npm run typecheck
-npm
+NEXT_PUBLIC_BACKEND_URL=https://agent-classroom-api.example.com VERCEL=1 npm run vercel-build
+```
+
+## Production deployment
+
+Production uses two services: the Next.js frontend on Vercel and one persistent backend container with Git, PTY, and WebSocket support. Deploy the backend first, then import the repository into Vercel with the repository root selected. Do not set `apps/web` as Vercel's Root Directory.
+
+Follow the complete [production deployment checklist](./docs/DEPLOYMENT.md).

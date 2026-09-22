@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { answerKeys, explanationComplete, EXPLANATION_MIN, EXPLANATION_MAX, nonWhitespaceLength, type AgentRecord, type Answers, type ReviewSnapshot, type ReviewContent, type ExplanationRecord } from '@classroom/shared';
+import { backendFetch } from '../lib/backend-fetch';
 const DiffViewer = dynamic(() => import('react-diff-viewer-continued'), { ssr: false, loading: () => <p>Loading diff viewer…</p> });
 const QuizMerge = dynamic(() => import('./quiz-merge'), { ssr: false });
 const empty: Answers = { problem: '', solution: '', edgeCase: '' };
@@ -15,7 +16,7 @@ export default function Review({ agent, backend, onClose }: { agent: AgentRecord
   const [message, setMessage] = useState(''); const [pasteMessage, setPasteMessage] = useState('');
   const [split, setSplit] = useState(true);
   const endpoint = `${backend}/api/agents/${agent.id}`;
-  async function request<T>(route: string, init?: RequestInit): Promise<T> { const response = await fetch(endpoint + route, init); const data = await response.json(); if (!response.ok) throw Object.assign(new Error(data.error || 'Request failed.'), { status: response.status }); return data; }
+  async function request<T>(route: string, init?: RequestInit): Promise<T> { const response = await backendFetch(endpoint + route, init); const data = await response.json(); if (!response.ok) throw Object.assign(new Error(data.error || 'Request failed.'), { status: response.status }); return data; }
   useEffect(() => { const narrow = window.matchMedia('(max-width: 800px)'); const change = () => setSplit(!narrow.matches); change(); narrow.addEventListener('change', change); return () => narrow.removeEventListener('change', change); }, []);
   useEffect(() => { let cancelled = false; setBusy(true); request<ReviewSnapshot>('/review').then(data => { if (cancelled) return; setReview(data); setSelected(data.files[0]?.id ?? ''); setAnswers(data.explanation?.answers ?? data.previousExplanation?.answers ?? empty); setMessage(data.explanation?.status === 'completed' ? 'Explanation completed' : data.explanation ? 'Saved draft restored' : data.previousExplanation ? 'Earlier writing restored. Review this version and save it again.' : ''); }).catch(e => { if (!cancelled) setError(e.message); }).finally(() => { if (!cancelled) setBusy(false); }); return () => { cancelled = true; }; }, [endpoint]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!dirty) return; const guard = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; }; window.addEventListener('beforeunload', guard); return () => window.removeEventListener('beforeunload', guard); }, [dirty]);
