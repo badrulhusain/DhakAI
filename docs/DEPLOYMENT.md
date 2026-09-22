@@ -52,6 +52,7 @@ Production backend variables:
 | `SUPABASE_SECRET_KEY` | for Supabase | private/sensitive server variable |
 | `GROQ_API_KEY` | for Codex quizzes/flowcharts | private/sensitive server variable |
 | `GROQ_MODEL` | with Groq | configured structured-output-capable model |
+| `CODEX_EXECUTABLE` | optional | defaults to `/usr/local/bin/codex` in the supplied backend image |
 | `TARGET_REPO` | optional | repository root inside the persistent volume/image |
 | `WORKTREE_ROOT` | optional | persistent path outside `TARGET_REPO` |
 | `DATA_ROOT` | local storage only | persistent data directory |
@@ -65,7 +66,7 @@ If using Supabase, apply the migration files in order before starting the backen
 
 Keep `SUPABASE_SECRET_KEY` on the backend only. Never add it to Vercel or prefix it with `NEXT_PUBLIC_`. The migrations enable RLS, revoke browser roles, and keep the drawing bucket private.
 
-The supplied image supports the bundled Demo runner. A hosted Codex runner additionally requires a deliberate Codex CLI installation and non-interactive authentication strategy in your own image; credentials are not copied from the development machine.
+The supplied image installs a pinned Codex CLI and sets `CODEX_EXECUTABLE=/usr/local/bin/codex`. Rebuild and redeploy the backend image after changing the pinned `CODEX_VERSION` build argument. Authentication is intentionally not baked into the image: authenticate the production container with an API key or a securely mounted Codex auth cache. Never copy credentials into an image layer or commit `auth.json`. See the official [Codex authentication guide](https://learn.chatgpt.com/docs/auth).
 
 ## 2. Deploy the frontend to Vercel
 
