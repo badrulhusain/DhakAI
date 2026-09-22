@@ -108,9 +108,8 @@ AI accelerated implementation and helped us explore different approaches. The te
 ## Demo
 
 ### Live Demo
-
-[Add deployed project link]
-
+frontent : https://dhak-ai-server-micq.vercel.app/
+backend  : https://dhakai.onrender.com 
 The agent backend requires access to Git, local worktrees, and PTY processes. If the public deployment does not support those capabilities, use the demo video or run the project locally.
 
 ### Demo / Pitch Video
